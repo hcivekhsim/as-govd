@@ -1,0 +1,20 @@
+services:
+  web-app:
+    build: .
+    command: ./scripts/wait-for-postgres.sh db ./as-app
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+    environment:
+      DB_PASSWORD: ${PSQL_PASSWORD}
+      DB_PORT: ${PSQL_PORT}
+  db:
+    image: postgres:latest
+    volumes: 
+      - ./.database/data:/var/lib/postgresql
+    environment: 
+      POSTGRES_PASSWORD: ${PSQL_PASSWORD}
+      POSTGRES_DB: appeal_system
+    ports: 
+      - 5432:5432 
