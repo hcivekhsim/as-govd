@@ -6,16 +6,20 @@ import (
 	"fmt"
 
 	"github.com/hcivekhsim/as-govd/internal/config"
-	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func ConnectDB(ctx context.Context) error {
+func ConnectDB(ctx context.Context) (*pgxpool.Pool, error) {
 	cfg := config.Load()
-	conn, err := pgx.Connect(ctx, fmt.Sprintf("postgresql://postgres:%s@db:%s/appeal_system?sslmode=disable", cfg.DBPassword, cfg.DBPort))
+	pools, err := pgxpool.New(ctx, fmt.Sprintf("postgresql://postgres:%s@db:%s/appeal_system?sslmode=disable", cfg.DBPassword, cfg.DBPort))
 	if err != nil {
-		return err // Create custom error
+		return nil, fmt.Errorf("create pgx pool: %w", err)
 	}
-	defer conn.Close(ctx)
-	fmt.Println("Подключение к БД прошло успешно")
-	return nil
+
+	if err := pools.Ping(ctx); err != nil {
+		pools.Close()
+		return nil, fmt.Errorf("ping db: %w", err)
+	}
+
+	return pools, nil
 }
