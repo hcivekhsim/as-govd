@@ -5,11 +5,18 @@ import (
 	"errors"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type UserRepo struct {
 	pool *pgxpool.Pool
+}
+
+type dbTX interface {
+	Exec(ctx context.Context, sql string, arguments ...any) (pgconn.CommandTag, error)
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
 }
 
 func NewUserRepo(pool *pgxpool.Pool) *UserRepo {
@@ -72,10 +79,21 @@ func (u *UserRepo) createUserAuth(ctx context.Context, user LoginAuth) error {
 	return err
 }
 
+func (u *UserRepo) deleteUserAuthBySessionTokenHash(ctx context.Context, sessionTokenHash string) error {
+	_, err := u.pool.Exec(ctx,
+		`DELETE FROM users_auth WHERE session_token_hash = $1`,
+		sessionTokenHash,
+	)
+	if err != nil {
+		return dbError(err)
+	}
+	return nil
+}
+
 func (u *UserRepo) getUserAuthBySessionTokenHash(ctx context.Context, sessionTokenHash string) (*LoginAuth, error) {
 	var userAuth LoginAuth
 	err := u.pool.QueryRow(ctx, `
-		SELECT ua.user_id, u.login, ua.session_token_hash, ua.csrf_token_hash, ua.expires_at
+		SELECT ua.user_id, u.login, u.role, u.preferred_language, ua.session_token_hash, ua.csrf_token_hash, ua.expires_at
 		FROM users_auth ua
 		JOIN users u ON u.id = ua.user_id
 		WHERE ua.session_token_hash = $1
@@ -84,6 +102,8 @@ func (u *UserRepo) getUserAuthBySessionTokenHash(ctx context.Context, sessionTok
 	`, sessionTokenHash).Scan(
 		&userAuth.UserID,
 		&userAuth.Login,
+		&userAuth.Role,
+		&userAuth.PreferredLanguage,
 		&userAuth.SessionTokenHash,
 		&userAuth.CSRFTokenHash,
 		&userAuth.ExpiresAt,
@@ -93,6 +113,29 @@ func (u *UserRepo) getUserAuthBySessionTokenHash(ctx context.Context, sessionTok
 	}
 
 	return &userAuth, nil
+}
+
+// getPreferredLanguage возвращает сохранённый в профиле язык интерфейса.
+func (u *UserRepo) getPreferredLanguage(ctx context.Context, userID int64) (Lang, error) {
+	var lang string
+	err := u.pool.QueryRow(ctx, `SELECT preferred_language FROM users WHERE id=$1`, userID).Scan(&lang)
+	if err != nil {
+		return LangRu, dbError(err)
+	}
+	result := Lang(lang)
+	if !result.valid() {
+		return LangRu, nil
+	}
+	return result, nil
+}
+
+// updatePreferredLanguage сохраняет выбранный язык интерфейса в профиле.
+func (u *UserRepo) updatePreferredLanguage(ctx context.Context, userID int64, lang Lang) error {
+	_, err := u.pool.Exec(ctx, `UPDATE users SET preferred_language=$2 WHERE id=$1`, userID, string(lang))
+	if err != nil {
+		return dbError(err)
+	}
+	return nil
 }
 
 func (u *UserRepo) getByAll(ctx context.Context) ([]Register, error) {
