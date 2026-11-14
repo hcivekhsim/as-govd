@@ -17,7 +17,7 @@ coverage.*
 !coverage.go
 *.coverprofile
 profile.cov
-
+uploads/
 # Dependency directories (remove the comment below to include it)
 # vendor/
 
@@ -27,9 +27,27 @@ go.work.sum
 
 # env file
 .env
+.env.example
 
 # data db 
 .database/
+
+# agents 
+AGENTS.md 
+.agents/
+
+# dependencies
+/node_modules
+
+# testing
+/coverage
+
+# production
+/build
+
+# misc
+.DS_Store
+npm-debug.log
 
 # Editor/IDE
 # .idea/

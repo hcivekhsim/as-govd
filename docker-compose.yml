@@ -6,9 +6,17 @@ services:
       - "8080:8080"
     depends_on:
       - db
+    volumes:
+      - ./uploads:/web-app/uploads
     environment:
       DB_PASSWORD: ${PSQL_PASSWORD}
       DB_PORT: ${PSQL_PORT}
+      UPLOAD_DIR: ${UPLOAD_DIR:-uploads/appeals}
+      MAX_FILES_COUNT: ${MAX_FILES_COUNT:-5}
+      MAX_FILE_SIZE_BYTES: ${MAX_FILE_SIZE_BYTES:-5242880}
+      MAX_BODY_SIZE_BYTES: ${MAX_BODY_SIZE_BYTES:-31457280}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
+      HCAPTCHA_SECRET: ${HCAPTCHA_SECRET:-}
   db:
     image: postgres:latest
     volumes: 
@@ -18,3 +26,19 @@ services:
       POSTGRES_DB: appeal_system
     ports: 
       - 5432:5432 
+  front:
+    image: node:22
+    working_dir: /app 
+    volumes:
+      - ./frontend:/app 
+      - /app/node_modules 
+    command: sh -c "npm ci && npm run dev -- --host 0.0.0.0"
+    environment:
+      VITE_PROXY_TARGET: http://web-app:8080
+      VITE_HCAPTCHA_KEY: ${HCAPTCHA_KEY:-}
+      VITE_YANDEX_MAPS: ${YANDEX_MAPS:-}
+      VITE_CONTACT_EMAIL: ${CONTACT_EMAIL:-}
+    ports:
+      - "5173:5173"
+    depends_on:
+      - web-app 

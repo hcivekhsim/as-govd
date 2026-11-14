@@ -39,27 +39,33 @@ func ValidateStruct(data any) map[string]string {
 
 // ValidateStruct -> SendReportOfStructAuth
 func SendReportOfStructAuth(errs map[string]string) map[string]string {
+	return SendValidationErrors(errs, LangRu)
+}
+
+// SendValidationErrors локализует отчёт валидации: ключ — имя поля (техническое),
+// значение — понятное сообщение на запрошенном языке.
+func SendValidationErrors(errs map[string]string, lang Lang) map[string]string {
 	outErrs := make(map[string]string, len(errs))
 	for f, t := range errs {
 		switch t {
 		case "required":
-			outErrs[f] = ErrRequiredField.Error()
-		case "email":
-			outErrs[f] = ErrInvalidField.Error()
+			outErrs[f] = validationTagMessage(lang, "required")
+		case "required_if":
+			outErrs[f] = validationTagMessage(lang, "required_if")
+		case "email", "phone":
+			outErrs[f] = validationTagMessage(lang, t)
 		case "eqfield":
-			outErrs[f] = ErrEqualField.Error()
-		case "phone":
-			outErrs[f] = ErrInvalidField.Error()
+			outErrs[f] = validationTagMessage(lang, "eqfield")
 		case "password":
-			outErrs[f] = ErrPasswordField.Error()
+			outErrs[f] = validationTagMessage(lang, "password")
 		case "gte":
-			outErrs[f] = ErrGteField.Error()
+			outErrs[f] = validationTagMessage(lang, "gte")
 		case "lte":
-			outErrs[f] = ErrLteField.Error()
+			outErrs[f] = validationTagMessage(lang, "lte")
 		case "oneof":
-			outErrs[f] = ErrOneOfField.Error()
+			outErrs[f] = validationTagMessage(lang, "oneof")
 		default:
-			outErrs[f] = ErrInvalidField.Error()
+			outErrs[f] = validationTagMessage(lang, "invalid")
 		}
 	}
 	return outErrs
